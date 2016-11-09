@@ -54,7 +54,7 @@ public class WebSocketTest {
     String flag = "";
     int num = 0;
 
-    if (haveRoom()) {
+    if (haveNoRoom()) {
       flag = makeRoom(session);
       num = 1;
     } else {
@@ -70,10 +70,10 @@ public class WebSocketTest {
     }
     sendMessageToSession(session, "start:" + flag + ":" + num);
     System.out
-        .println("play有新连接加入！当前在线人数为" + getOnlineCount() + ":" + map.size());
+        .println("play有新连接加入！当前在线人数为" + getOnlineCount());
   }
 
-  private boolean haveRoom() {
+  private boolean haveNoRoom() {
     if (flags.size() == 0) {
       return true;
     }
@@ -87,12 +87,12 @@ public class WebSocketTest {
   }
 
   public String makeRoom(Session session) {
-    String flag = createFlag();
+    String flag =session.getId();
     Session[] sessions = new Session[2];
     sessions[0] = session;
     room.put(flag, sessions);
     flags.add(flag);
-    return flag;
+    return session.getId();
   }
 
   public String createFlag() {
@@ -109,7 +109,8 @@ public class WebSocketTest {
    */
   @OnClose
   public void onClose() {
-    // sessions.remove(this.session); // 从set中删除
+	room.remove(this.session.getId()); //当链接断开的时候移除房间
+	flags.remove(this.session.getId()); //移除钥匙
     subOnlineCount(); // 在线数减1
     System.out.println("play有一连接关闭！当前在线人数为" + getOnlineCount());
   }
@@ -125,7 +126,7 @@ public class WebSocketTest {
   @OnMessage
   public void onMessage(String message, Session session) throws IOException {
     System.out
-        .println("play来自客户端的消息:" + message + ":session:" + session.getId());
+        .println("play来自客户端的消息:" + message + ":session:" + session.getId()+"||房间数:"+room.size());
     String[] ss = message.split(":");
     if (ss[0].equals("turn")) {
       leftRight(ss);
@@ -135,19 +136,21 @@ public class WebSocketTest {
   private void leftRight(String[] ss) throws IOException {
     StringBuffer rep = new StringBuffer();
     rep.append("turn:");
+    int positionx = Integer.parseInt(ss[4]);
     if (ss[2].equals("1")) {
       if (ss[3].equals("left")) {
-        rep.append("plane1:left");
+        rep.append("plane1:" + (positionx-5));
       } else {
-       rep.append("plane1:right");
+    	  rep.append("plane1:" + (positionx+5));
       }
     } else if (ss[2].equals("2")) {
       if (ss[3].equals("left")) {
-        rep.append("plane2:left");
+    	  rep.append("plane2:" + (positionx-5));
       } else {
-        rep.append("plane2:right");
+    	  rep.append("plane2:" + (positionx+5));
       }
     }
+    System.out.println("發出消息:"+rep.toString());
     sendMessage(room.get(ss[1]), rep.toString());
   }
 
@@ -160,7 +163,7 @@ public class WebSocketTest {
   @OnError
   public void onError(Session session, Throwable error) {
     System.out.println("play发生错误" + error);
-    error.printStackTrace();
+    //error.printStackTrace();
   }
 
   /**
@@ -172,7 +175,9 @@ public class WebSocketTest {
   public void sendMessage(Session[] sessions, String message)
       throws IOException {
     for (Session session : sessions) {
-      session.getBasicRemote().sendText(message);
+    	if(session!=null){
+    		session.getBasicRemote().sendText(message);
+    	}
     }
   }
 
